@@ -71,7 +71,9 @@ validate_url() {
     local var_name=$1
     local var_value="${!var_name}"
     
-    if [[ "$var_value" =~ ^(https?|postgres|redis)://[a-zA-Z0-9][a-zA-Z0-9.-]+[a-zA-Z0-9](:[0-9]+)?(/.*)?$ ]]; then
+    # More permissive regex that handles various URL formats including IPv4, hostnames with dots/dashes
+    if [[ "$var_value" =~ ^(https?|postgres|postgresql|redis)://[a-zA-Z0-9_]([a-zA-Z0-9._-]*[a-zA-Z0-9])?(@[a-zA-Z0-9._-]+)?(:[0-9]+)?(/[a-zA-Z0-9._-]*)?$ ]] || \
+       [[ "$var_value" =~ ^(postgres|postgresql)://[^@]+@[a-zA-Z0-9._-]+(:[0-9]+)?/[a-zA-Z0-9._-]+$ ]]; then
         echo -e "${GREEN}✓ $var_name has valid URL format${NC}"
     else
         echo -e "${RED}✗ $var_name has invalid URL format: $var_value${NC}"
