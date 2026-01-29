@@ -65,9 +65,22 @@ fi
 
 echo -e "${GREEN}✓ All required environment variables are set${NC}"
 
+# Warn about localhost CORS in production
+if [ "${ENVIRONMENT}" = "production" ]; then
+    if [[ "${CORS_ALLOWED_ORIGINS}" == *"localhost"* ]]; then
+        echo -e "${YELLOW}⚠ WARNING: CORS_ALLOWED_ORIGINS contains 'localhost' in production environment${NC}"
+        echo -e "${YELLOW}  This may prevent access from your domain. Update CORS_ALLOWED_ORIGINS in .env${NC}"
+    fi
+fi
+
 # Extract database host and port from DATABASE_URL
 DB_HOST=$(echo $DATABASE_URL | sed -n 's/.*@\([^:]*\):.*/\1/p')
 DB_PORT=$(echo $DATABASE_URL | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+
+if [ -z "$DB_HOST" ] || [ -z "$DB_PORT" ]; then
+    echo -e "${RED}Error: Failed to parse DATABASE_URL. Expected format: postgres://user:pass@host:port/database${NC}"
+    exit 1
+fi
 
 # Extract Redis host and port from REDIS_URL
 REDIS_HOST=$(echo $REDIS_URL | sed -n 's/.*:\/\/\([^:]*\):.*/\1/p')
@@ -109,7 +122,14 @@ fi
 # Create upload directory if it doesn't exist (for local storage)
 if [ "${STORAGE_TYPE}" = "local" ]; then
     UPLOAD_DIR=${UPLOAD_DIR:-./uploads}
-    mkdir -p "$UPLOAD_DIR"
+    if ! mkdir -p "$UPLOAD_DIR" 2>/dev/null; then
+        echo -e "${RED}Error: Failed to create upload directory: $UPLOAD_DIR${NC}"
+        exit 1
+    fi
+    if [ ! -w "$UPLOAD_DIR" ]; then
+        echo -e "${RED}Error: Upload directory is not writable: $UPLOAD_DIR${NC}"
+        exit 1
+    fi
     echo -e "${GREEN}✓ Upload directory ready: $UPLOAD_DIR${NC}"
 fi
 

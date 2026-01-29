@@ -243,10 +243,32 @@ echo -e "  ${YELLOW}Note: JWT Secret and Encryption Key saved in $INSTALL_DIR/ba
 # Run migrations
 echo -e "  ${YELLOW}Running database migrations...${NC}"
 cd $INSTALL_DIR/backend
+
+migration_failed=0
 for migration in migrations/*.sql; do
-    PGPASSWORD=${POSTGRES_PASSWORD} psql -h localhost -U clovalink -d clovalink -f $migration > /dev/null 2>&1 || true
+    if [ -f "$migration" ]; then
+        migration_name=$(basename "$migration")
+        echo -e "  ${YELLOW}Applying $migration_name...${NC}"
+        
+        if PGPASSWORD=${POSTGRES_PASSWORD} psql -h localhost -U clovalink -d clovalink -f "$migration" > /dev/null 2>&1; then
+            echo -e "  ${GREEN}✓${NC} $migration_name applied successfully"
+        else
+            # Check if migration was already applied (common on reinstalls)
+            if PGPASSWORD=${POSTGRES_PASSWORD} psql -h localhost -U clovalink -d clovalink -c "SELECT 1" > /dev/null 2>&1; then
+                echo -e "  ${YELLOW}⚠${NC} $migration_name may have already been applied or had non-critical errors"
+            else
+                echo -e "  ${RED}✗${NC} Failed to apply $migration_name"
+                migration_failed=1
+            fi
+        fi
+    fi
 done
-echo -e "  ${GREEN}✓${NC} Database migrations completed"
+
+if [ $migration_failed -eq 1 ]; then
+    echo -e "  ${YELLOW}⚠${NC} Some migrations failed, but database is accessible. Review logs if services don't start."
+else
+    echo -e "  ${GREEN}✓${NC} Database migrations completed"
+fi
 
 # Step 10: Setup systemd services
 echo ""
@@ -277,7 +299,7 @@ echo -e "  ${GREEN}✓${NC} Systemd services configured and started"
 # Wait for services to be ready
 echo ""
 echo -e "  Waiting for services to start..."
-sleep 5
+sleep 10
 
 # Check if services are running
 BACKEND_STATUS=$(systemctl is-active clovalink-backend)

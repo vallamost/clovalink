@@ -18,8 +18,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/clovalink/backend/uploads
-ReadWritePaths=/var/log/clovalink
+ReadWritePaths=/opt/clovalink/backend/uploads /var/log/clovalink
 
 # Resource limits
 LimitNOFILE=65536

@@ -31,6 +31,19 @@ For a quick native deployment on Ubuntu/Debian:
 curl -fsSL https://raw.githubusercontent.com/ClovaLink/ClovaLink/main/deployment/install-native.sh | sudo bash
 ```
 
+**For production systems**, use the safer two-step method:
+
+```bash
+# Download and review the script first
+curl -fsSL https://raw.githubusercontent.com/ClovaLink/ClovaLink/main/deployment/install-native.sh -o install-native.sh
+
+# Review the script
+less install-native.sh
+
+# Run it after review
+sudo bash install-native.sh
+```
+
 ### Manual Installation
 
 See [NATIVE-DEPLOYMENT.md](NATIVE-DEPLOYMENT.md) for detailed manual installation instructions.
