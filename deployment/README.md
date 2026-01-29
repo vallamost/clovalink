@@ -13,8 +13,11 @@ deployment/
 │   ├── start-backend.sh       # Backend startup script (Docker/native compatible)
 │   └── validate-env.sh        # Environment validation script
 ├── nginx.conf                 # Nginx configuration for frontend
+├── .env.native.example        # Example environment configuration for native deployment
 ├── install-native.sh          # Automated installer for native deployment
 ├── NATIVE-DEPLOYMENT.md       # Comprehensive deployment guide
+├── DOCKER-VS-NATIVE.md        # Comparison of deployment approaches
+├── QUICK-REFERENCE.md         # Command reference for both deployments
 └── README.md                  # This file
 ```
 
@@ -242,6 +245,9 @@ Both service files include security hardening:
 ## Documentation
 
 - [NATIVE-DEPLOYMENT.md](NATIVE-DEPLOYMENT.md) - Complete deployment guide
+- [DOCKER-VS-NATIVE.md](DOCKER-VS-NATIVE.md) - Detailed comparison of approaches
+- [QUICK-REFERENCE.md](QUICK-REFERENCE.md) - Quick command reference
+- [.env.native.example](.env.native.example) - Example environment configuration
 - [../README.md](../README.md) - Main project README
 - [../backend/TESTING.md](../backend/TESTING.md) - Testing guide
 
