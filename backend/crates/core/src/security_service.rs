@@ -680,3 +680,73 @@ pub async fn alert_user_suspended_malware(
     ).await
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_alert_severity_conversion() {
+        assert_eq!(AlertSeverity::Critical.as_str(), "critical");
+        assert_eq!(AlertSeverity::High.as_str(), "high");
+        assert_eq!(AlertSeverity::Medium.as_str(), "medium");
+        assert_eq!(AlertSeverity::Low.as_str(), "low");
+    }
+
+    #[test]
+    fn test_alert_type_conversion() {
+        assert_eq!(AlertType::FailedLoginSpike.as_str(), "failed_login_spike");
+        assert_eq!(AlertType::NewIpLogin.as_str(), "new_ip_login");
+        assert_eq!(AlertType::PermissionEscalation.as_str(), "permission_escalation");
+        assert_eq!(AlertType::SuspendedAccessAttempt.as_str(), "suspended_access_attempt");
+        assert_eq!(AlertType::BulkDownload.as_str(), "bulk_download");
+        assert_eq!(AlertType::BlockedExtensionAttempt.as_str(), "blocked_extension_attempt");
+        assert_eq!(AlertType::ExcessiveSharing.as_str(), "excessive_sharing");
+        assert_eq!(AlertType::AccountLockout.as_str(), "account_lockout");
+        assert_eq!(AlertType::PotentialTokenTheft.as_str(), "potential_token_theft");
+        assert_eq!(AlertType::MalwareDetected.as_str(), "malware_detected");
+        assert_eq!(AlertType::UserSuspendedMalware.as_str(), "user_suspended_malware");
+    }
+
+    #[test]
+    fn test_alert_default_severity() {
+        assert_eq!(AlertType::FailedLoginSpike.default_severity(), AlertSeverity::High);
+        assert_eq!(AlertType::NewIpLogin.default_severity(), AlertSeverity::Medium);
+        assert_eq!(AlertType::PermissionEscalation.default_severity(), AlertSeverity::High);
+        assert_eq!(AlertType::SuspendedAccessAttempt.default_severity(), AlertSeverity::Medium);
+        assert_eq!(AlertType::BulkDownload.default_severity(), AlertSeverity::High);
+        assert_eq!(AlertType::BlockedExtensionAttempt.default_severity(), AlertSeverity::Low);
+        assert_eq!(AlertType::ExcessiveSharing.default_severity(), AlertSeverity::Medium);
+        assert_eq!(AlertType::AccountLockout.default_severity(), AlertSeverity::Critical);
+        assert_eq!(AlertType::PotentialTokenTheft.default_severity(), AlertSeverity::High);
+        assert_eq!(AlertType::MalwareDetected.default_severity(), AlertSeverity::High);
+        assert_eq!(AlertType::UserSuspendedMalware.default_severity(), AlertSeverity::Critical);
+    }
+
+    #[test]
+    fn test_critical_alerts() {
+        let critical_alerts = vec![
+            AlertType::AccountLockout,
+            AlertType::UserSuspendedMalware,
+        ];
+        
+        for alert in critical_alerts {
+            assert_eq!(alert.default_severity(), AlertSeverity::Critical);
+        }
+    }
+
+    #[test]
+    fn test_high_severity_alerts() {
+        let high_alerts = vec![
+            AlertType::FailedLoginSpike,
+            AlertType::PermissionEscalation,
+            AlertType::BulkDownload,
+            AlertType::PotentialTokenTheft,
+            AlertType::MalwareDetected,
+        ];
+        
+        for alert in high_alerts {
+            assert_eq!(alert.default_severity(), AlertSeverity::High);
+        }
+    }
+}
+

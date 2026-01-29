@@ -466,3 +466,164 @@ pub fn get_base_permissions(base_role: &str) -> Vec<&'static str> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize_optional_uuid_valid() {
+        let json = r#"{"id": "550e8400-e29b-41d4-a716-446655440000"}"#;
+        
+        #[derive(Deserialize)]
+        struct TestStruct {
+            #[serde(deserialize_with = "deserialize_optional_uuid")]
+            id: Option<Uuid>,
+        }
+        
+        let result: TestStruct = serde_json::from_str(json).expect("Failed to deserialize");
+        assert!(result.id.is_some());
+    }
+
+    #[test]
+    fn test_deserialize_optional_uuid_empty_string() {
+        let json = r#"{"id": ""}"#;
+        
+        #[derive(Deserialize)]
+        struct TestStruct {
+            #[serde(deserialize_with = "deserialize_optional_uuid")]
+            id: Option<Uuid>,
+        }
+        
+        let result: TestStruct = serde_json::from_str(json).expect("Failed to deserialize");
+        assert!(result.id.is_none());
+    }
+
+    #[test]
+    fn test_deserialize_optional_uuid_null() {
+        let json = r#"{"id": null}"#;
+        
+        #[derive(Deserialize)]
+        struct TestStruct {
+            #[serde(deserialize_with = "deserialize_optional_uuid")]
+            id: Option<Uuid>,
+        }
+        
+        let result: TestStruct = serde_json::from_str(json).expect("Failed to deserialize");
+        assert!(result.id.is_none());
+    }
+
+    #[test]
+    fn test_get_default_permissions_employee() {
+        let perms = get_base_permissions("Employee");
+        assert!(perms.contains(&"files.view"));
+        assert!(perms.contains(&"files.upload"));
+        assert!(perms.contains(&"files.download"));
+        assert!(!perms.contains(&"users.view"));
+        assert!(!perms.contains(&"settings.edit"));
+    }
+
+    #[test]
+    fn test_get_default_permissions_manager() {
+        let perms = get_base_permissions("Manager");
+        assert!(perms.contains(&"files.view"));
+        assert!(perms.contains(&"files.upload"));
+        assert!(perms.contains(&"files.download"));
+        assert!(perms.contains(&"files.delete"));
+        assert!(perms.contains(&"files.share"));
+        assert!(perms.contains(&"files.lock"));
+        assert!(!perms.contains(&"users.view"));
+        assert!(!perms.contains(&"settings.edit"));
+    }
+
+    #[test]
+    fn test_get_default_permissions_admin() {
+        let perms = get_base_permissions("Admin");
+        assert!(perms.contains(&"files.view"));
+        assert!(perms.contains(&"files.upload"));
+        assert!(perms.contains(&"users.view"));
+        assert!(perms.contains(&"users.invite"));
+        assert!(perms.contains(&"settings.view"));
+        assert!(!perms.contains(&"users.delete")); // Only SuperAdmin
+        assert!(!perms.contains(&"settings.edit")); // Only SuperAdmin
+        assert!(!perms.contains(&"tenants.manage")); // Only SuperAdmin
+    }
+
+    #[test]
+    fn test_get_default_permissions_superadmin() {
+        let perms = get_base_permissions("SuperAdmin");
+        assert!(perms.contains(&"files.view"));
+        assert!(perms.contains(&"users.view"));
+        assert!(perms.contains(&"users.delete"));
+        assert!(perms.contains(&"settings.view"));
+        assert!(perms.contains(&"settings.edit"));
+        assert!(perms.contains(&"tenants.manage"));
+        assert!(perms.contains(&"audit.export"));
+    }
+
+    #[test]
+    fn test_get_default_permissions_unknown_role() {
+        let perms = get_base_permissions("UnknownRole");
+        assert!(perms.is_empty());
+    }
+
+    #[test]
+    fn test_permission_hierarchy() {
+        let employee_perms = get_base_permissions("Employee");
+        let manager_perms = get_base_permissions("Manager");
+        let admin_perms = get_base_permissions("Admin");
+        let superadmin_perms = get_base_permissions("SuperAdmin");
+        
+        // Manager should have more permissions than Employee
+        assert!(manager_perms.len() > employee_perms.len());
+        
+        // Admin should have more permissions than Manager
+        assert!(admin_perms.len() > manager_perms.len());
+        
+        // SuperAdmin should have more permissions than Admin
+        assert!(superadmin_perms.len() > admin_perms.len());
+        
+        // SuperAdmin should have the most permissions
+        assert!(superadmin_perms.len() >= 20); // At least 20 permissions
+    }
+
+    #[test]
+    fn test_tenant_model_fields() {
+        // Test that Tenant struct has expected compliance fields
+        let tenant_id = Uuid::new_v4();
+        let now = Utc::now();
+        
+        let tenant = Tenant {
+            id: tenant_id,
+            name: "Test Tenant".to_string(),
+            domain: "test.example.com".to_string(),
+            plan: "enterprise".to_string(),
+            status: "active".to_string(),
+            compliance_mode: "hipaa".to_string(),
+            encryption_standard: "aes256".to_string(),
+            retention_policy_days: 2555, // 7 years for HIPAA
+            storage_quota_bytes: Some(1_000_000_000),
+            storage_used_bytes: 0,
+            smtp_host: None,
+            smtp_port: None,
+            smtp_username: None,
+            smtp_password: None,
+            smtp_from: None,
+            smtp_secure: None,
+            enable_totp: Some(true),
+            enable_passkeys: Some(false),
+            mfa_required: Some(true),
+            session_timeout_minutes: Some(15),
+            public_sharing_enabled: Some(false),
+            data_export_enabled: Some(true),
+            max_upload_size_bytes: Some(100_000_000),
+            created_at: now,
+            updated_at: now,
+        };
+        
+        assert_eq!(tenant.name, "Test Tenant");
+        assert_eq!(tenant.compliance_mode, "hipaa");
+        assert_eq!(tenant.mfa_required, Some(true));
+        assert_eq!(tenant.session_timeout_minutes, Some(15));
+    }
+}
+
