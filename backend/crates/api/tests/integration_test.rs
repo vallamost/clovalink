@@ -66,8 +66,10 @@ mod security_tests {
         let api_key = "secret_api_key_12345";
         let masked = mask_sensitive_data(api_key);
         
-        assert!(masked.contains("***"), "API key should be masked");
-        assert!(!masked.contains("12345"), "Last digits should be hidden");
+        // All characters should be masked (visible_chars = 0)
+        assert!(masked.contains("*"), "API key should be masked");
+        assert!(!masked.contains("secret"), "Sensitive data should not be visible");
+        assert!(!masked.contains("12345"), "Digits should be hidden");
     }
 }
 
@@ -75,23 +77,30 @@ mod security_tests {
 mod compliance_tests {
     #[test]
     fn test_hipaa_retention_policy() {
-        // HIPAA requires 7 years retention (2555 days)
-        let hipaa_retention_days = 7 * 365;
-        assert_eq!(hipaa_retention_days, 2555);
+        // HIPAA requires 7 years retention
+        // Accounting for leap years: 7 years = 2556-2557 days
+        let hipaa_retention_days = 7 * 365 + 2; // Conservative: 7 years + 2 leap days
+        assert_eq!(hipaa_retention_days, 2557);
+        
+        // Minimum without leap years
+        let min_days = 7 * 365;
+        assert_eq!(min_days, 2555);
     }
 
     #[test]
     fn test_gdpr_retention_policy() {
         // GDPR typical retention is 2 years
-        let gdpr_retention_days = 2 * 365;
-        assert_eq!(gdpr_retention_days, 730);
+        // Accounting for leap years: 2 years = 730-731 days
+        let gdpr_retention_days = 2 * 365 + 1; // 2 years + 1 leap day
+        assert_eq!(gdpr_retention_days, 731);
     }
 
     #[test]
     fn test_sox_retention_policy() {
         // SOX requires 7 years retention
-        let sox_retention_days = 7 * 365;
-        assert_eq!(sox_retention_days, 2555);
+        // Accounting for leap years: 7 years = 2556-2557 days
+        let sox_retention_days = 7 * 365 + 2; // Conservative: 7 years + 2 leap days
+        assert_eq!(sox_retention_days, 2557);
     }
 }
 
@@ -101,16 +110,29 @@ mod file_operations_tests {
 
     #[test]
     fn test_file_path_validation() {
-        // Test path traversal prevention
+        // Test that we can detect path traversal attempts
         let malicious_paths = vec![
             "../../../etc/passwd",
             "..\\..\\windows\\system32",
             "uploads/../config",
         ];
         
-        for path in malicious_paths {
-            assert!(path.contains(".."), "Malicious path should be detected");
+        // Helper to validate paths (simplified version)
+        fn is_path_safe(path: &str) -> bool {
+            !path.contains("..")
         }
+        
+        for path in malicious_paths {
+            assert!(
+                !is_path_safe(path),
+                "Path traversal attempt should be rejected: {}",
+                path
+            );
+        }
+        
+        // Valid paths should pass
+        assert!(is_path_safe("uploads/file.txt"));
+        assert!(is_path_safe("documents/2024/report.pdf"));
     }
 
     #[test]
@@ -191,14 +213,14 @@ mod rate_limiting_tests {
 }
 
 /// Helper function to mask sensitive data in logs
+/// For security, masks all characters without showing any part of the original data
 fn mask_sensitive_data(data: &str) -> String {
     if data.len() <= 4 {
         return "***".to_string();
     }
     
-    let visible_chars = 0; // Don't show any characters for security
-    let masked_part = "*".repeat(data.len() - visible_chars);
-    format!("{}", masked_part)
+    // Mask entire string for maximum security
+    "*".repeat(data.len())
 }
 
 #[cfg(test)]
