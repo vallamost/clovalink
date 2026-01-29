@@ -1,0 +1,18 @@
+[Unit]
+Description=ClovaLink Frontend (Nginx)
+After=network.target clovalink-backend.service
+Wants=clovalink-backend.service
+
+[Service]
+Type=forking
+PIDFile=/run/nginx-clovalink.pid
+ExecStartPre=/usr/sbin/nginx -t -c /opt/clovalink/frontend/nginx.conf
+ExecStart=/usr/sbin/nginx -c /opt/clovalink/frontend/nginx.conf
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s QUIT $MAINPID
+PrivateTmp=true
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

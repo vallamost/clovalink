@@ -227,9 +227,11 @@ Real-time monitoring for unusual activity patterns:
 
 ## Quick Start
 
-### One-Line Install (Recommended)
+### Docker Deployment (Recommended)
 
-Run this single command to install ClovaLink:
+#### One-Line Install
+
+Run this single command to install ClovaLink with Docker:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ClovaLink/ClovaLink/main/install.sh | bash
@@ -243,6 +245,22 @@ The installer will:
 - Show you the login URL
 
 That's it! Follow the prompts and you'll be running in minutes.
+
+### Native Deployment (Without Docker)
+
+For running ClovaLink directly on your host without Docker:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ClovaLink/ClovaLink/main/deployment/install-native.sh | sudo bash
+```
+
+**Benefits of native deployment:**
+- Better performance (no container overhead)
+- Lower resource usage
+- Direct system integration
+- Easier debugging
+
+See [deployment/NATIVE-DEPLOYMENT.md](deployment/NATIVE-DEPLOYMENT.md) for detailed instructions.
 
 ---
 

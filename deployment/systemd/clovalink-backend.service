@@ -1,0 +1,34 @@
+[Unit]
+Description=ClovaLink Backend API Server
+After=network.target postgresql.service redis.service
+Wants=postgresql.service redis.service
+
+[Service]
+Type=simple
+User=clovalink
+Group=clovalink
+WorkingDirectory=/opt/clovalink/backend
+EnvironmentFile=/opt/clovalink/backend/.env
+ExecStart=/opt/clovalink/deployment/scripts/start-backend.sh
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/clovalink/backend/uploads
+ReadWritePaths=/var/log/clovalink
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=512
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=clovalink-backend
+
+[Install]
+WantedBy=multi-user.target
