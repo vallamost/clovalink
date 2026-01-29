@@ -25,7 +25,9 @@ RUN cargo build --release --bin clovalink_api
 # Runtime stage
 FROM rust:slim AS runtime
 WORKDIR /app
-RUN apt-get update && apt-get install -y pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y pkg-config libssl-dev ca-certificates netcat-traditional && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/release/clovalink_api /app/clovalink_backend
+COPY deployment/scripts/start-backend.sh /app/start-backend.sh
+RUN chmod +x /app/start-backend.sh
 EXPOSE 3000
-CMD ["./clovalink_backend"]
+CMD ["/app/start-backend.sh"]
