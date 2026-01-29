@@ -513,4 +513,212 @@ pub fn require_manager(auth_user: &AuthUser) -> Result<(), StatusCode> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_user(role: &str) -> AuthUser {
+        AuthUser {
+            user_id: Uuid::new_v4(),
+            tenant_id: Uuid::new_v4(),
+            role: role.to_string(),
+            email: "test@example.com".to_string(),
+            ip_address: Some("127.0.0.1".to_string()),
+        }
+    }
+
+    #[test]
+    fn test_generate_fingerprint_ipv4() {
+        use axum::body::Body;
+        
+        let req = Request::builder()
+            .header("user-agent", "Mozilla/5.0")
+            .header("accept-language", "en-US")
+            .body(Body::empty())
+            .unwrap();
+        
+        let fingerprint = generate_fingerprint(&req, Some("192.168.1.100"));
+        assert!(!fingerprint.is_empty());
+        assert_eq!(fingerprint.len(), 64); // SHA256 produces 64 hex chars
+    }
+
+    #[test]
+    fn test_generate_fingerprint_no_ip() {
+        use axum::body::Body;
+        
+        let req = Request::builder()
+            .header("user-agent", "Mozilla/5.0")
+            .header("accept-language", "en-US")
+            .body(Body::empty())
+            .unwrap();
+        
+        let fingerprint = generate_fingerprint(&req, None);
+        assert!(!fingerprint.is_empty());
+        assert_eq!(fingerprint.len(), 64);
+    }
+
+    #[test]
+    fn test_generate_fingerprint_consistency() {
+        use axum::body::Body;
+        
+        let req1 = Request::builder()
+            .header("user-agent", "Mozilla/5.0")
+            .header("accept-language", "en-US")
+            .body(Body::empty())
+            .unwrap();
+        
+        let req2 = Request::builder()
+            .header("user-agent", "Mozilla/5.0")
+            .header("accept-language", "en-US")
+            .body(Body::empty())
+            .unwrap();
+        
+        let fp1 = generate_fingerprint(&req1, Some("192.168.1.100"));
+        let fp2 = generate_fingerprint(&req2, Some("192.168.1.100"));
+        
+        assert_eq!(fp1, fp2, "Same headers and IP should produce same fingerprint");
+    }
+
+    #[test]
+    fn test_extract_client_ip_x_forwarded_for() {
+        use axum::body::Body;
+        
+        let req = Request::builder()
+            .header("x-forwarded-for", "203.0.113.1, 198.51.100.1")
+            .body(Body::empty())
+            .unwrap();
+        
+        let ip = extract_client_ip(&req);
+        assert_eq!(ip, Some("203.0.113.1".to_string()));
+    }
+
+    #[test]
+    fn test_extract_client_ip_x_real_ip() {
+        use axum::body::Body;
+        
+        let req = Request::builder()
+            .header("x-real-ip", "203.0.113.1")
+            .body(Body::empty())
+            .unwrap();
+        
+        let ip = extract_client_ip(&req);
+        assert_eq!(ip, Some("203.0.113.1".to_string()));
+    }
+
+    #[test]
+    fn test_extract_client_ip_no_headers() {
+        use axum::body::Body;
+        
+        let req = Request::builder()
+            .body(Body::empty())
+            .unwrap();
+        
+        let ip = extract_client_ip(&req);
+        assert_eq!(ip, None);
+    }
+
+    #[test]
+    fn test_ip_matches_any_exact_match() {
+        let list = vec!["192.168.1.100".to_string(), "10.0.0.1".to_string()];
+        assert!(ip_matches_any("192.168.1.100", &list));
+        assert!(ip_matches_any("10.0.0.1", &list));
+        assert!(!ip_matches_any("192.168.1.101", &list));
+    }
+
+    #[test]
+    fn test_has_role_single_role() {
+        let user = create_test_user("Admin");
+        assert!(has_role(&user, &["Admin"]));
+        assert!(!has_role(&user, &["SuperAdmin"]));
+        assert!(!has_role(&user, &["Employee"]));
+    }
+
+    #[test]
+    fn test_has_role_multiple_roles() {
+        let user = create_test_user("Manager");
+        assert!(has_role(&user, &["Admin", "Manager", "Employee"]));
+        assert!(!has_role(&user, &["SuperAdmin", "Admin"]));
+    }
+
+    #[test]
+    fn test_require_superadmin_success() {
+        let user = create_test_user("SuperAdmin");
+        assert!(require_super_admin(&user).is_ok());
+    }
+
+    #[test]
+    fn test_require_superadmin_failure() {
+        let admin = create_test_user("Admin");
+        assert_eq!(require_super_admin(&admin), Err(StatusCode::FORBIDDEN));
+        
+        let manager = create_test_user("Manager");
+        assert_eq!(require_super_admin(&manager), Err(StatusCode::FORBIDDEN));
+        
+        let employee = create_test_user("Employee");
+        assert_eq!(require_super_admin(&employee), Err(StatusCode::FORBIDDEN));
+    }
+
+    #[test]
+    fn test_require_admin_success() {
+        let superadmin = create_test_user("SuperAdmin");
+        assert!(require_admin(&superadmin).is_ok());
+        
+        let admin = create_test_user("Admin");
+        assert!(require_admin(&admin).is_ok());
+    }
+
+    #[test]
+    fn test_require_admin_failure() {
+        let manager = create_test_user("Manager");
+        assert_eq!(require_admin(&manager), Err(StatusCode::FORBIDDEN));
+        
+        let employee = create_test_user("Employee");
+        assert_eq!(require_admin(&employee), Err(StatusCode::FORBIDDEN));
+    }
+
+    #[test]
+    fn test_require_manager_success() {
+        let superadmin = create_test_user("SuperAdmin");
+        assert!(require_manager(&superadmin).is_ok());
+        
+        let admin = create_test_user("Admin");
+        assert!(require_manager(&admin).is_ok());
+        
+        let manager = create_test_user("Manager");
+        assert!(require_manager(&manager).is_ok());
+    }
+
+    #[test]
+    fn test_require_manager_failure() {
+        let employee = create_test_user("Employee");
+        assert_eq!(require_manager(&employee), Err(StatusCode::FORBIDDEN));
+    }
+
+    #[test]
+    fn test_role_hierarchy() {
+        // Ensure SuperAdmin can access everything
+        let superadmin = create_test_user("SuperAdmin");
+        assert!(require_super_admin(&superadmin).is_ok());
+        assert!(require_admin(&superadmin).is_ok());
+        assert!(require_manager(&superadmin).is_ok());
+        
+        // Ensure Admin can access admin and manager but not superadmin
+        let admin = create_test_user("Admin");
+        assert!(require_super_admin(&admin).is_err());
+        assert!(require_admin(&admin).is_ok());
+        assert!(require_manager(&admin).is_ok());
+        
+        // Ensure Manager can access manager but not admin
+        let manager = create_test_user("Manager");
+        assert!(require_super_admin(&manager).is_err());
+        assert!(require_admin(&manager).is_err());
+        assert!(require_manager(&manager).is_ok());
+        
+        // Ensure Employee cannot access any elevated role
+        let employee = create_test_user("Employee");
+        assert!(require_super_admin(&employee).is_err());
+        assert!(require_admin(&employee).is_err());
+        assert!(require_manager(&employee).is_err());
+    }
+}
 

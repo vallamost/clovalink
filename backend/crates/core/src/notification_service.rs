@@ -1273,3 +1273,118 @@ pub async fn notify_malware_detection(
     
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_notification_type_as_str() {
+        assert_eq!(NotificationType::FileUpload.as_str(), "file_upload");
+        assert_eq!(NotificationType::RequestExpiring.as_str(), "request_expiring");
+        assert_eq!(NotificationType::UserCreated.as_str(), "user_created");
+        assert_eq!(NotificationType::RoleChanged.as_str(), "role_changed");
+        assert_eq!(NotificationType::ComplianceAlert.as_str(), "compliance_alert");
+        assert_eq!(NotificationType::StorageWarning.as_str(), "storage_warning");
+        assert_eq!(NotificationType::FileShared.as_str(), "file_shared");
+        assert_eq!(NotificationType::MalwareDetected.as_str(), "malware_detected");
+    }
+
+    #[test]
+    fn test_notification_type_event_type() {
+        assert_eq!(NotificationType::FileUpload.event_type(), "file_upload");
+        assert_eq!(NotificationType::RequestExpiring.event_type(), "request_expiring");
+        assert_eq!(NotificationType::UserCreated.event_type(), "user_action");
+        assert_eq!(NotificationType::RoleChanged.event_type(), "user_action");
+        assert_eq!(NotificationType::ComplianceAlert.event_type(), "compliance_alert");
+        assert_eq!(NotificationType::StorageWarning.event_type(), "storage_warning");
+        assert_eq!(NotificationType::FileShared.event_type(), "file_shared");
+        assert_eq!(NotificationType::MalwareDetected.event_type(), "security_alert");
+    }
+
+    #[test]
+    fn test_replace_template_variables_simple() {
+        let template = "Hello {{user_name}}, welcome to {{company_name}}!";
+        let mut vars = HashMap::new();
+        vars.insert("user_name".to_string(), "John".to_string());
+        vars.insert("company_name".to_string(), "Acme Corp".to_string());
+        
+        let result = render_template(template, &vars);
+        assert_eq!(result, "Hello John, welcome to Acme Corp!");
+    }
+
+    #[test]
+    fn test_replace_template_variables_multiple_occurrences() {
+        let template = "{{name}} is {{name}}, not {{other_name}}";
+        let mut vars = HashMap::new();
+        vars.insert("name".to_string(), "Alice".to_string());
+        vars.insert("other_name".to_string(), "Bob".to_string());
+        
+        let result = render_template(template, &vars);
+        assert_eq!(result, "Alice is Alice, not Bob");
+    }
+
+    #[test]
+    fn test_replace_template_variables_missing_var() {
+        let template = "Hello {{user_name}}, your score is {{score}}!";
+        let mut vars = HashMap::new();
+        vars.insert("user_name".to_string(), "Jane".to_string());
+        // score is missing
+        
+        let result = render_template(template, &vars);
+        assert_eq!(result, "Hello Jane, your score is {{score}}!");
+    }
+
+    #[test]
+    fn test_replace_template_variables_no_vars() {
+        let template = "Hello world!";
+        let vars = HashMap::new();
+        
+        let result = render_template(template, &vars);
+        assert_eq!(result, "Hello world!");
+    }
+
+    #[test]
+    fn test_replace_template_variables_empty_value() {
+        let template = "Name: {{name}}, Title: {{title}}";
+        let mut vars = HashMap::new();
+        vars.insert("name".to_string(), "John".to_string());
+        vars.insert("title".to_string(), "".to_string());
+        
+        let result = render_template(template, &vars);
+        assert_eq!(result, "Name: John, Title: ");
+    }
+
+    #[test]
+    fn test_replace_template_variables_special_chars() {
+        let template = "Email: {{email}}, Path: {{file_path}}";
+        let mut vars = HashMap::new();
+        vars.insert("email".to_string(), "user@example.com".to_string());
+        vars.insert("file_path".to_string(), "/home/user/file.txt".to_string());
+        
+        let result = render_template(template, &vars);
+        assert_eq!(result, "Email: user@example.com, Path: /home/user/file.txt");
+    }
+
+    #[test]
+    fn test_email_template_structure() {
+        let template_id = Uuid::new_v4();
+        let now = Utc::now();
+        
+        let template = EmailTemplate {
+            id: template_id,
+            template_key: "welcome_email".to_string(),
+            name: "Welcome Email".to_string(),
+            subject: "Welcome to {{company_name}}".to_string(),
+            body_html: "<h1>Hello {{user_name}}</h1>".to_string(),
+            body_text: Some("Hello {{user_name}}".to_string()),
+            variables: json!({"user_name": "string", "company_name": "string"}),
+            created_at: now,
+            updated_at: now,
+        };
+        
+        assert_eq!(template.template_key, "welcome_email");
+        assert_eq!(template.name, "Welcome Email");
+        assert!(template.body_text.is_some());
+    }
+}

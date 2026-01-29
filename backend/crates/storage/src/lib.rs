@@ -688,3 +688,115 @@ impl Storage for EncryptedLocalStorage {
         self.inner.health_check().await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[test]
+    fn test_file_metadata_creation() {
+        let metadata = FileMetadata {
+            name: "test.txt".to_string(),
+            size: 1024,
+            modified: "2024-01-01T00:00:00Z".to_string(),
+            is_dir: false,
+        };
+        
+        assert_eq!(metadata.name, "test.txt");
+        assert_eq!(metadata.size, 1024);
+        assert!(!metadata.is_dir);
+    }
+
+    #[test]
+    fn test_encrypted_local_storage_encryption_decryption() {
+        // Use a test encryption key
+        let test_key: [u8; 32] = [0u8; 32]; // All zeros for test
+        
+        let storage = EncryptedLocalStorage::new("./test_uploads", &test_key);
+        
+        let original_data = b"Hello, World! This is a test message.";
+        
+        // Test encryption
+        let encrypted = storage.encrypt(original_data).expect("Encryption should succeed");
+        assert_ne!(encrypted, original_data, "Encrypted data should differ from original");
+        assert!(encrypted.len() > original_data.len(), "Encrypted data includes nonce and tag");
+        
+        // Test decryption
+        let decrypted = storage.decrypt(&encrypted);
+        assert_eq!(decrypted, original_data, "Decrypted data should match original");
+    }
+
+    #[test]
+    fn test_encrypted_storage_roundtrip() {
+        let test_key: [u8; 32] = [1u8; 32];
+        
+        let storage = EncryptedLocalStorage::new("./test_uploads", &test_key);
+        
+        let test_messages = vec![
+            b"Short".to_vec(),
+            b"Medium length message for testing".to_vec(),
+            b"Very long message that contains a lot of text to ensure encryption works with larger data sizes and maintains data integrity throughout the process".to_vec(),
+            vec![0u8; 1000], // Binary data
+        ];
+        
+        for original in test_messages {
+            let encrypted = storage.encrypt(&original).expect("Encryption failed");
+            let decrypted = storage.decrypt(&encrypted);
+            assert_eq!(decrypted, original, "Roundtrip failed for data");
+        }
+    }
+
+    #[test]
+    fn test_encrypted_storage_nonce_uniqueness() {
+        let test_key: [u8; 32] = [2u8; 32];
+        
+        let storage = EncryptedLocalStorage::new("./test_uploads", &test_key);
+        let data = b"Same message";
+        
+        let encrypted1 = storage.encrypt(data).expect("First encryption failed");
+        let encrypted2 = storage.encrypt(data).expect("Second encryption failed");
+        
+        // Encrypted data should be different each time due to random nonce
+        assert_ne!(encrypted1, encrypted2, "Nonces should be unique");
+        
+        // But both should decrypt to the same original message
+        assert_eq!(storage.decrypt(&encrypted1), data);
+        assert_eq!(storage.decrypt(&encrypted2), data);
+    }
+
+    #[test]
+    fn test_encrypted_storage_backwards_compatibility() {
+        let test_key: [u8; 32] = [3u8; 32];
+        
+        let storage = EncryptedLocalStorage::new("./test_uploads", &test_key);
+        
+        // Simulate plaintext file from before encryption was enabled
+        let plaintext = b"Unencrypted legacy file";
+        
+        // Decrypt should return original data if decryption fails (backwards compatibility)
+        let result = storage.decrypt(plaintext);
+        assert_eq!(result, plaintext, "Should return plaintext for non-encrypted data");
+    }
+
+    #[tokio::test]
+    async fn test_local_storage_supports_presigned_urls() {
+        let storage = LocalStorage::new("./test_uploads");
+        assert!(!storage.supports_presigned_urls());
+    }
+
+    #[tokio::test]
+    async fn test_encrypted_local_storage_supports_presigned_urls() {
+        let test_key: [u8; 32] = [4u8; 32];
+        let storage = EncryptedLocalStorage::new("./test_uploads", &test_key);
+        assert!(!storage.supports_presigned_urls());
+    }
+
+    #[tokio::test]
+    async fn test_s3_storage_supports_presigned_urls() {
+        // Note: This test doesn't require actual S3 connection
+        // We create the storage instance to test the trait implementation
+        let storage = S3Storage::new("test-bucket".to_string()).await;
+        assert!(storage.supports_presigned_urls());
+    }
+}
